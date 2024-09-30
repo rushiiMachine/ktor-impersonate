@@ -1,4 +1,6 @@
 use catch_panic::catch_panic;
+use jni::objects::GlobalRef;
+use jni::strings::JNIString;
 use jni::JNIEnv;
 
 macro_rules! cache_ref {
@@ -18,8 +20,13 @@ macro_rules! cache_ref {
 	}};
 }
 
+cache_ref!(ClassInvalidArgumentException: GlobalRef);
+cache_ref!(ClassRuntimeException: GlobalRef);
+
 #[catch_panic(default = "false")]
 pub(super) unsafe fn init_cache(mut env: JNIEnv) -> bool {
+	INNER_ClassInvalidArgumentException = Some(make_class_ref(&mut env, "java/lang/InvalidArgumentException").unwrap());
+	INNER_ClassRuntimeException = Some(make_class_ref(&mut env, "java/lang/RuntimeException").unwrap());
 	true
 }
 
@@ -27,5 +34,12 @@ pub(super) unsafe fn init_cache(mut env: JNIEnv) -> bool {
 /// Otherwise, if the class gets unloaded by the JVM, all the method/field IDs become invalid.s
 #[catch_panic(default = "false")]
 pub(super) unsafe fn release_cache(env: JNIEnv) -> bool {
+	INNER_ClassInvalidArgumentException = None;
+	INNER_ClassRuntimeException = None;
 	true
+}
+
+fn make_class_ref<S: Into<JNIString>>(env: &mut JNIEnv, name: S) -> jni::errors::Result<GlobalRef> {
+	env.find_class(name)
+		.and_then(|cls| env.new_global_ref(cls))
 }
