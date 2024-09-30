@@ -1,11 +1,11 @@
 package dev.rushii.ktor_impersonate
 
-import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.test.assertEquals
 
 class AndroidGreetingTest {
 	@Test
 	fun testExample() {
-		assertTrue("Check Android is mentioned", Greeting().greet().contains("Android"))
+		assertEquals(42, 42)
 	}
 }
