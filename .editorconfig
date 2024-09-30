@@ -19,6 +19,9 @@ ij_smart_tabs = false
 ij_visual_guides = none
 ij_wrap_on_typing = false
 
+[*.rs]
+ij_continuation_indent_size = 4
+
 [*.xml]
 indent_size = 4
 ij_continuation_indent_size = 4
