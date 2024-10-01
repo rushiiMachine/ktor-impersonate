@@ -16,7 +16,9 @@ kotlin {
 	explicitApi()
 
 	sourceSets {
-		commonMain.dependencies {}
+		commonMain.dependencies {
+			implementation(libs.ktor)
+		}
 		commonTest.dependencies {
 			implementation(libs.kotlin.test)
 		}
