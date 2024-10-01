@@ -17,7 +17,7 @@ log = "0.4.22"
 paste = "1.0.15"
 rand = "0.8.5"
 rquest = { version = "0.21.11", features = ["boring-tls", "websocket"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "io-util", "time", "sync"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log = "0.1.3"

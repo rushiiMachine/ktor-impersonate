@@ -3,27 +3,47 @@ pub(crate) mod exception;
 mod methods;
 
 use jni::sys::{jint, JNI_ERR, JNI_VERSION_1_6};
-use jni::JavaVM;
+use jni::{JNIEnv, JavaVM};
 use std::ffi::c_void;
+use std::sync::OnceLock;
+use tokio::runtime::Runtime;
+
+/// The runtime to be used for launching async tasks that need to use [JNIEnv].
+pub(crate) static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 #[no_mangle]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
-    let env = vm.get_env().unwrap();
+	let mut env = vm.get_env().unwrap();
 
-    #[cfg(target_os = "android")]
-    android_log::init("KtorImpersonateNative").unwrap();
+	// Initialize logging backed per-platform
+	#[cfg(target_os = "android")]
+	android_log::init("KtorImpersonateNative").unwrap();
 
-    if unsafe { !jni_cache::init_cache(env) } {
-        return JNI_ERR;
-    }
+	// Initialize the JNI reference cache
+	if unsafe { !jni_cache::init_cache(env.unsafe_clone()) } {
+		return JNI_ERR;
+	}
 
-    JNI_VERSION_1_6
+	// Initialize global tokio runtime
+	let vm_copy = unsafe { JavaVM::from_raw(vm.get_java_vm_pointer()) }.unwrap();
+	let runtime = tokio::runtime::Builder::new_multi_thread()
+		.on_thread_start(move || { vm_copy.attach_current_thread_as_daemon().expect("Failed to attach tokio thread to Java"); })
+		.enable_time()
+		.enable_io()
+		.build();
+	match runtime {
+		Ok(rt) => TOKIO_RUNTIME.set(rt).unwrap(),
+		Err(err) => throw!(env, &*format!("Failed to initialize tokio runtime: {err}"), JNI_ERR),
+	}
+
+	JNI_VERSION_1_6
 }
 
 // Note: This is never called on Android
 #[no_mangle]
 pub extern "system" fn JNI_OnUnload(vm: JavaVM, _reserved: c_void) {
-    let env = vm.get_env().unwrap();
+	let env = vm.get_env().unwrap();
 
-    unsafe { jni_cache::release_cache(env); }
+	// Delete all references in JNI ref cache
+	unsafe { jni_cache::release_cache(env); }
 }

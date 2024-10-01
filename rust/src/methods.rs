@@ -1,4 +1,4 @@
-use crate::{throw, throw_argument};
+use crate::{throw, throw_argument, TOKIO_RUNTIME};
 use catch_panic::catch_panic;
 use dashmap::{DashMap, Entry};
 use jni::objects::{JClass, JObject, JString};
@@ -141,7 +141,8 @@ fn execute_request(mut env: JNIEnv, client: Client, builder: RequestBuilder) -> 
 	};
 
 	let mut request_id: i32 = 0;
-	let handle = tokio::spawn(async move {
+	let tokio = TOKIO_RUNTIME.get().expect("Tokio runtime not initialized");
+	let handle = tokio.spawn(async move {
 		match client.execute(request).await {
 			Err(err) => todo!(),
 			Ok(resp) => {
