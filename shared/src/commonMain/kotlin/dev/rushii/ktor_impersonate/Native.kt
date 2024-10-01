@@ -10,7 +10,7 @@ internal expect fun initializeNative()
 @Suppress("unused")
 internal object Native {
 	@JvmStatic
-	external fun createClient(): Long
+	external fun createClient(config: ImpersonateConfig): Long
 	@JvmStatic
 	external fun destroyClient(clientPtr: Long)
 	@JvmStatic

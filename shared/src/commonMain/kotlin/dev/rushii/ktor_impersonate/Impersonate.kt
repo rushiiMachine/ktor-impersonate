@@ -17,7 +17,7 @@ public class Impersonate(override val config: ImpersonateConfig) : HttpClientEng
 	/**
 	 * Pointer to the rust-side reqwest-impersonate client.
 	 */
-	private var nativeClientPtr: Long = Native.createClient()
+	private var nativeClientPtr: Long = Native.createClient(config)
 
 	override val supportedCapabilities: Set<HttpClientEngineCapability<*>>
 		get() = setOf(HttpTimeout.Plugin, WebSocketCapability, WebSocketExtensionsCapability) // Reqwest does not support SSE

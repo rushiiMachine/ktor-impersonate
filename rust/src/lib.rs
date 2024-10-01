@@ -1,5 +1,6 @@
 pub(crate) mod jni_cache;
 pub(crate) mod exception;
+mod methods;
 
 use jni::sys::{jint, JNI_ERR, JNI_VERSION_1_6};
 use jni::JavaVM;
