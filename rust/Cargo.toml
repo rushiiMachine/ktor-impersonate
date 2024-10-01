@@ -13,6 +13,8 @@ catch_panic = { git = "https://github.com/sorz/catch_panic.git", rev = "92d4158"
 jni = "0.21.1"
 log = "0.4.22"
 paste = "1.0.15"
+rquest = { version = "0.21.11", features = ["boring-tls", "websocket"] }
+tokio = { version = "1", features = ["full"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log = "0.1.3"

@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class)
 
 import com.android.build.gradle.tasks.MergeSourceSetFolders
+import org.gradle.kotlin.dsl.support.listFilesOrdered
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
@@ -76,6 +77,23 @@ afterEvaluate {
 			dependsOn("cargoBuild")
 			inputs.dir(layout.buildDirectory.asFile.get().resolve("rustJniLibs/android"))
 		}
+	}
+
+	// Set environment variables for boring ssl compilation targeting the Android NDK
+	// Carry it through properties for the rust-android-gradle-plugin
+	for (targetTriple in arrayOf("armv7-linux-androideabi", "aarch64-linux-android", "i686-linux-android", "x86_64-linux-android")) {
+		val target = targetTriple.uppercase().replace('-', '_')
+
+		// Set ANDROID_NDK_HOME pointing to latest NDK toolchain
+		project.ext.set("RUST_ANDROID_GRADLE_TARGET_${target}_ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
+
+		// Set CMAKE_GENERATOR to make cmake wrapper crate pass through the proper generator
+		project.ext.set("RUST_ANDROID_GRADLE_TARGET_${target}_CMAKE_GENERATOR", "Ninja")
+
+		// Add Android SDK's cmake install to PATH to use that cmake & ninja build
+		val pathSeparator = if (System.getenv("OS").contains("windows", ignoreCase = true)) ";" else ":"
+		val cmakeDir = android.sdkDirectory.resolve("cmake").listFilesOrdered().last().resolve("bin").absolutePath
+		project.ext.set("RUST_ANDROID_GRADLE_TARGET_${target}_PATH", cmakeDir + pathSeparator + System.getenv("PATH"))
 	}
 }
 
