@@ -1,12 +1,12 @@
 use catch_panic::catch_panic;
 use jni::objects::{GlobalRef, JMethodID};
-use jni::strings::JNIString;
 use jni::JNIEnv;
+use std::sync::Mutex;
 
 macro_rules! cache_ref {
-    ($name:ident: $ty:ty) => { paste::paste! {
+    ($name:ident : $ty:ty) => { paste::paste! {
 		#[allow(non_upper_case_globals)]
-		static mut [<INNER_ $name>]: Option<$ty> = None;
+		static [<INNER_ $name>]: Mutex<Option<$ty>> = Mutex::new(None);
 
 		/// Unwraps this cache member as long as `JNI_OnUnload` has not been called yet.
 		/// The values returned by this should be disposed of as quickly as possible and not held.
@@ -14,41 +14,73 @@ macro_rules! cache_ref {
 		pub(crate) fn $name() -> $ty
 			where $ty: Clone
 		{
-			unsafe { [<INNER_ $name>] .clone() }
+			[<INNER_ $name>].lock()
+				.expect("jni_cache mutex lock fail")
+				.as_ref()
 				.expect("JNI cache already cleaned up")
+				.clone()
+		}
+
+		/// Initializes this global cached value. If it already contains a value, a panic occurs.
+		#[allow(non_snake_case)]
+		fn [<init_ $name>](value: $ty)
+			where $ty: Clone
+		{
+			let mut option = [<INNER_ $name>].lock()
+				.expect("jni_cache mutex lock fail");
+
+			match option.as_ref() {
+				Some(_) => panic!("jni_cache member already initialized"),
+				None => { *option = Some(value); }
+			};
 		}
 	}};
 }
 
-cache_ref!(ClassInvalidArgumentException: GlobalRef);
-cache_ref!(ClassRuntimeException: GlobalRef);
-cache_ref!(ClassNativeCallbacks: GlobalRef);
-cache_ref!(MethodOnResponse: JMethodID);
-cache_ref!(MethodOnError: JMethodID);
+macro_rules! clear_refs {
+	($($name:ident,)*) => { paste::paste! {
+		$(
+		[<INNER_ $name>].lock()
+		.expect("jni_cache mutex lock fail")
+		.take();
+		)*
+	}};
+}
+
+cache_ref!(InvalidArgumentException: GlobalRef);
+cache_ref!(RuntimeException: GlobalRef);
+cache_ref!(NativeCallbacks: GlobalRef);
+cache_ref!(onResponse: JMethodID);
+cache_ref!(onError: JMethodID);
 
 #[catch_panic(default = "false")]
-pub(super) unsafe fn init_cache(mut env: JNIEnv) -> bool {
-	INNER_ClassInvalidArgumentException = Some(make_class_ref(&mut env, "java/lang/InvalidArgumentException").unwrap());
-	INNER_ClassRuntimeException = Some(make_class_ref(&mut env, "java/lang/RuntimeException").unwrap());
-	INNER_ClassNativeCallbacks = Some(make_class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks").unwrap());
-	INNER_MethodOnResponse = Some(env.get_method_id(&ClassNativeCallbacks(), "onResponse", "(ILjava/lang/String;)V").unwrap());
-	INNER_MethodOnError = Some(env.get_method_id(&ClassNativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
+pub(super) fn init_cache(mut env: JNIEnv) -> bool {
+	fn class_ref(env: &mut JNIEnv, name: &str) -> GlobalRef {
+		env.find_class(name)
+			.and_then(|cls| env.new_global_ref(cls))
+			.expect("failed to get class for jni_cache member")
+	}
+
+	init_InvalidArgumentException(class_ref(&mut env, "java/lang/InvalidArgumentException"));
+	init_RuntimeException(class_ref(&mut env, "java/lang/RuntimeException"));
+	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks"));
+	init_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(ILjava/lang/String;)V").unwrap());
+	init_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	true
 }
 
 /// Class refs should be deleted after all their member IDs have been.
 /// Otherwise, if the class gets unloaded by the JVM, all the method/field IDs become invalid.s
 #[catch_panic(default = "false")]
-pub(super) unsafe fn release_cache(env: JNIEnv) -> bool {
-	INNER_ClassInvalidArgumentException = None;
-	INNER_ClassRuntimeException = None;
-	INNER_MethodOnResponse = None;
-	INNER_MethodOnError = None;
-	INNER_ClassNativeCallbacks = None;
-	true
-}
+pub(super) fn release_cache(env: JNIEnv) -> bool {
+	clear_refs!(
+		InvalidArgumentException,
+		RuntimeException,
 
-fn make_class_ref<S: Into<JNIString>>(env: &mut JNIEnv, name: S) -> jni::errors::Result<GlobalRef> {
-	env.find_class(name)
-		.and_then(|cls| env.new_global_ref(cls))
+		onResponse,
+		onError,
+		NativeCallbacks,
+	);
+
+	true
 }

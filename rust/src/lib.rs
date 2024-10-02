@@ -45,5 +45,5 @@ pub extern "system" fn JNI_OnUnload(vm: JavaVM, _reserved: c_void) {
 	let env = vm.get_env().unwrap();
 
 	// Delete all references in JNI ref cache
-	unsafe { jni_cache::release_cache(env); }
+	jni_cache::release_cache(env);
 }

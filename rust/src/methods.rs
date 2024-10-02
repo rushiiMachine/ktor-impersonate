@@ -1,5 +1,4 @@
-use crate::jni_cache::{MethodOnError, MethodOnResponse};
-use crate::{throw, throw_argument, TOKIO_RUNTIME};
+use crate::{jni_cache, throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
 use arraystring::ArrayString;
 use catch_panic::catch_panic;
@@ -136,7 +135,7 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 		.expect("Unexpected HTTP version");
 	let version_jni = JValueGen::from(env.new_string(version).unwrap()).as_jni();
 
-	unsafe { env.call_method_unchecked(callbacks, &MethodOnResponse(), ReturnType::Primitive(Primitive::Void), &[status_jni, version_jni]) }
+	unsafe { env.call_method_unchecked(callbacks, &jni_cache::onResponse(), ReturnType::Primitive(Primitive::Void), &[status_jni, version_jni]) }
 		.expect("Failed to invoke onResponse callback");
 }
 
@@ -147,7 +146,7 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 	let message = format!("Failed to execute request: {error}");
 	let message_jni = JValueGen::from(env.new_string(message).unwrap());
 
-	unsafe { env.call_method_unchecked(callbacks, &MethodOnError(), ReturnType::Primitive(Primitive::Void), &[message_jni.as_jni()]) }
+	unsafe { env.call_method_unchecked(callbacks, &jni_cache::onError(), ReturnType::Primitive(Primitive::Void), &[message_jni.as_jni()]) }
 		.expect("Failed to invoke onError callback");
 }
 

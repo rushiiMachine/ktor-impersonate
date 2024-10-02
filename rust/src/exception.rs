@@ -8,11 +8,11 @@
 #[macro_export]
 macro_rules! throw_argument {
 	($env:ident, $msg:expr) => {{
-		$env.throw_new(&crate::jni_cache::ClassInvalidArgumentException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::InvalidArgumentException(), $msg).expect("failed to throw error");
 		return;
 	}};
     ($env:ident, $msg:expr, $ret:expr) => {{
-		$env.throw_new(&crate::jni_cache::ClassInvalidArgumentException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::InvalidArgumentException(), $msg).expect("failed to throw error");
 		return $ret;
 	}};
 }
@@ -22,11 +22,11 @@ macro_rules! throw_argument {
 #[macro_export]
 macro_rules! throw {
 	($env:ident, $msg:expr) => {{
-		$env.throw_new(&crate::jni_cache::ClassRuntimeException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::RuntimeException(), $msg).expect("failed to throw error");
 		return;
 	}};
     ($env:ident, $msg:expr, $ret:expr) => {{
-		$env.throw_new(&crate::jni_cache::ClassRuntimeException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::RuntimeException(), $msg).expect("failed to throw error");
 		return $ret;
 	}};
 }
