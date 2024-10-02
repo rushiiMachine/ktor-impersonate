@@ -9,6 +9,7 @@ name = "ktorimpersonate"
 crate-type = ["cdylib"]
 
 [dependencies]
+arraystring = "0.3.0"
 catch_panic = { git = "https://github.com/sorz/catch_panic.git", rev = "92d4158" } # https://github.com/HermitSocialClub/catch_panic/pull/2
 dashmap = "6.1.0"
 jni = "0.21.1"

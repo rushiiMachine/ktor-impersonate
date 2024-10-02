@@ -3,7 +3,7 @@ pub(crate) mod exception;
 mod methods;
 
 use jni::sys::{jint, JNI_ERR, JNI_VERSION_1_6};
-use jni::{JNIEnv, JavaVM};
+use jni::JavaVM;
 use std::ffi::c_void;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;

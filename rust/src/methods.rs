@@ -1,21 +1,23 @@
+use crate::jni_cache::{MethodOnError, MethodOnResponse};
 use crate::{throw, throw_argument, TOKIO_RUNTIME};
+use arraystring::typenum::U8;
+use arraystring::ArrayString;
 use catch_panic::catch_panic;
 use dashmap::{DashMap, Entry};
-use jni::objects::{JClass, JObject, JString};
-use jni::signature::ReturnType;
+use jni::objects::{GlobalRef, JClass, JObject, JString, JValueGen, JValueOwned};
+use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jboolean, jint, jlong};
-use jni::JNIEnv;
+use jni::{JNIEnv, JavaVM};
 use jni_fn::jni_fn;
 use log::debug;
 use rand::Rng;
-use rquest::tls::Impersonate;
-use rquest::{Client, RequestBuilder};
+use rquest::{Client, RequestBuilder, Response};
 use std::borrow::Cow;
+use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use tokio::task::AbortHandle;
-use jnix::{FromJava, JnixEnv};
 
 /// Request tasks that have not yet completed (including long-lived websockets)
 /// This is in order to be able to cancel currently running requests.
@@ -33,13 +35,13 @@ enum RequestTask {
 pub fn createClient<'l>(
 	mut env: JNIEnv<'l>,
 	_cls: JClass<'l>,
-	config: JObject<'l>,
+	_config: JObject<'l>,
 ) -> jlong {
-	let mut builder = Client::builder();
+	let builder = Client::builder();
 
 	let client_ptr = match builder.build() {
 		Ok(client) => Box::leak(Box::new(client)) as *const Client,
-		Err(err) => throw_argument!(env, &*format!("Failed to build rquest Client: {err}"))
+		Err(err) => throw_argument!(env, &*format!("Failed to build rquest Client: {err}"), 0)
 	};
 
 	client_ptr as jlong
@@ -93,11 +95,12 @@ pub fn executeRequest<'l>(
 
 	// Create & setup request builder
 	let builder = client.request(http_method, url);
+	let callbacks = env.new_global_ref(callbacks).unwrap();
 
 	if is_websocket > 0 {
 		execute_websocket(env, client, builder)
 	} else {
-		execute_request(env, client, builder)
+		execute_request(env, callbacks, client, builder)
 	}
 }
 
@@ -118,6 +121,36 @@ pub fn cancelRequest<'l>(
 	}
 }
 
+// ------------------------ JNI Callbacks ------------------------ //
+
+fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
+	// We assume this thread is already attached to the VM based on the tokio runtime config
+	let mut env = vm.get_env().expect("Thread is not attached to JavaVM");
+
+	let status = response.status().as_u16();
+	let status_jni = JValueOwned::from(status as i32).as_jni();
+
+	// Format HTTP version to string
+	let mut version = ArrayString::<U8>::new();
+	write!(version, "{:?}", response.version())
+		.expect("Unexpected HTTP version");
+	let version_jni = JValueGen::from(env.new_string(version).unwrap()).as_jni();
+
+	unsafe { env.call_method_unchecked(callbacks, &MethodOnResponse(), ReturnType::Primitive(Primitive::Void), &[status_jni, version_jni]) }
+		.expect("Failed to invoke onResponse callback");
+}
+
+fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error) {
+	// We assume this thread is already attached to the VM based on the tokio runtime config
+	let mut env = vm.get_env().expect("Thread is not attached to JavaVM");
+
+	let message = format!("Failed to execute request: {error}");
+	let message_jni = JValueGen::from(env.new_string(message).unwrap());
+
+	unsafe { env.call_method_unchecked(callbacks, &MethodOnError(), ReturnType::Primitive(Primitive::Void), &[message_jni.as_jni()]) }
+		.expect("Failed to invoke onError callback");
+}
+
 // ------------------------ Other ------------------------ //
 
 /// Generate a random id for this request and store a cancellation handle into ACTIVE_REQUESTS for later
@@ -134,20 +167,20 @@ fn store_request_task(task: RequestTask) -> i32 {
 	}
 }
 
-fn execute_request(mut env: JNIEnv, client: Client, builder: RequestBuilder) -> jint {
+fn execute_request(mut env: JNIEnv, callbacks: GlobalRef, client: Client, builder: RequestBuilder) -> jint {
+	let mut request_id: i32 = 0;
+
 	let request = match builder.build() {
 		Ok(req) => req,
 		Err(err) => throw!(env, &*format!("Failed to build request: {err}"), -1),
 	};
 
-	let mut request_id: i32 = 0;
 	let tokio = TOKIO_RUNTIME.get().expect("Tokio runtime not initialized");
+	let vm = env.get_java_vm().unwrap();
 	let handle = tokio.spawn(async move {
 		match client.execute(request).await {
-			Err(err) => todo!(),
-			Ok(resp) => {
-				todo!()
-			}
+			Err(err) => callback_request_error(vm, callbacks, err),
+			Ok(resp) => callback_response(vm, callbacks, resp),
 		};
 
 		debug!("Clearing request {request_id}");
@@ -158,7 +191,7 @@ fn execute_request(mut env: JNIEnv, client: Client, builder: RequestBuilder) -> 
 	request_id
 }
 
-fn execute_websocket(mut env: JNIEnv, client: Client, builder: RequestBuilder) -> jint {
+fn execute_websocket(_env: JNIEnv, _client: Client, _builder: RequestBuilder) -> jint {
 	store_request_task(RequestTask::Continuous(()));
 	todo!();
 }

@@ -1,5 +1,5 @@
 use catch_panic::catch_panic;
-use jni::objects::GlobalRef;
+use jni::objects::{GlobalRef, JMethodID};
 use jni::strings::JNIString;
 use jni::JNIEnv;
 
@@ -15,18 +15,24 @@ macro_rules! cache_ref {
 			where $ty: Clone
 		{
 			unsafe { [<INNER_ $name>] .clone() }
-				.expect("JNI cache member already cleaned up during JNI_OnUnload")
+				.expect("JNI cache already cleaned up")
 		}
 	}};
 }
 
 cache_ref!(ClassInvalidArgumentException: GlobalRef);
 cache_ref!(ClassRuntimeException: GlobalRef);
+cache_ref!(ClassNativeCallbacks: GlobalRef);
+cache_ref!(MethodOnResponse: JMethodID);
+cache_ref!(MethodOnError: JMethodID);
 
 #[catch_panic(default = "false")]
 pub(super) unsafe fn init_cache(mut env: JNIEnv) -> bool {
 	INNER_ClassInvalidArgumentException = Some(make_class_ref(&mut env, "java/lang/InvalidArgumentException").unwrap());
 	INNER_ClassRuntimeException = Some(make_class_ref(&mut env, "java/lang/RuntimeException").unwrap());
+	INNER_ClassNativeCallbacks = Some(make_class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks").unwrap());
+	INNER_MethodOnResponse = Some(env.get_method_id(&ClassNativeCallbacks(), "onResponse", "(ILjava/lang/String;)V").unwrap());
+	INNER_MethodOnError = Some(env.get_method_id(&ClassNativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	true
 }
 
@@ -36,6 +42,9 @@ pub(super) unsafe fn init_cache(mut env: JNIEnv) -> bool {
 pub(super) unsafe fn release_cache(env: JNIEnv) -> bool {
 	INNER_ClassInvalidArgumentException = None;
 	INNER_ClassRuntimeException = None;
+	INNER_MethodOnResponse = None;
+	INNER_MethodOnError = None;
+	INNER_ClassNativeCallbacks = None;
 	true
 }
 
