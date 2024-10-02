@@ -18,7 +18,8 @@ internal object Native {
 	@JvmStatic
 	external fun cancelRequest(requestId: Int)
 
-	open class Callbacks {
-		open fun onResponse(code: Int, version: String) {}
+	abstract class Callbacks {
+		abstract fun onResponse(code: Int, version: String)
+		abstract fun onError(message: String)
 	}
 }

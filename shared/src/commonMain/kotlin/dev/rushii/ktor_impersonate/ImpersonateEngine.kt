@@ -10,6 +10,7 @@ import io.ktor.util.*
 import io.ktor.util.date.*
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @OptIn(InternalAPI::class)
 public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpClientEngineBase("ktor-impersonate") {
@@ -39,6 +40,10 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 						callContext = callContext,
 					)
 					continuation.resume(data)
+				}
+
+				override fun onError(message: String) {
+					continuation.resumeWithException(RquestException(message))
 				}
 			}
 
