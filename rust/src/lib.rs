@@ -20,12 +20,15 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
 	android_log::init("KtorImpersonateNative").unwrap();
 
 	// Initialize the JNI reference cache
+	// SAFETY: init_cache does not create JNI local references
 	if unsafe { !jni_cache::init_cache(env.unsafe_clone()) } {
 		return JNI_ERR;
 	}
 
-	// Initialize global tokio runtime
+	// SAFETY: from_raw always receives a valid pointer
 	let vm_copy = unsafe { JavaVM::from_raw(vm.get_java_vm_pointer()) }.unwrap();
+
+	// Initialize global tokio runtime
 	let runtime = tokio::runtime::Builder::new_multi_thread()
 		.on_thread_start(move || { vm_copy.attach_current_thread_as_daemon().expect("Failed to attach tokio thread to Java"); })
 		.enable_time()

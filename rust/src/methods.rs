@@ -58,7 +58,8 @@ pub fn destroyClient<'l>(
 	let client_ptr = client_ptr as *mut Client;
 	if client_ptr.is_null() { return; }
 
-	// Free the Box and decrease Client's Arc
+	// Free the Box and decrease Client's Arc count
+	// SAFETY: This works as long as the Java-side invariant is preserved
 	drop(unsafe { Box::from_raw(client_ptr) });
 }
 
@@ -152,6 +153,7 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 		.expect("failed to convert headers map")
 		.as_jni();
 
+	// SAFETY: Method ID is always valid and sig types are correct
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
@@ -169,6 +171,7 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 	let message = format!("Failed to execute request: {error}");
 	let message_jni = JValueGen::from(env.new_string(message).unwrap()).as_jni();
 
+	// SAFETY: Method ID is always valid and sig types are correct
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
