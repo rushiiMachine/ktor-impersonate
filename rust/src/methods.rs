@@ -3,15 +3,17 @@ use arraystring::typenum::U8;
 use arraystring::ArrayString;
 use catch_panic::catch_panic;
 use dashmap::{DashMap, Entry};
-use jni::objects::{GlobalRef, JClass, JObject, JString, JValueGen, JValueOwned};
+use jni::objects::{GlobalRef, JClass, JMap, JObject, JString, JValueGen, JValueOwned};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jboolean, jint, jlong};
 use jni::{JNIEnv, JavaVM};
 use jni_fn::jni_fn;
 use log::debug;
 use rand::Rng;
+use rquest::header::HeaderMap;
 use rquest::{Client, RequestBuilder, Response};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -69,6 +71,7 @@ pub fn executeRequest<'l>(
 	callbacks: JObject<'l>,
 	url: JString<'l>,
 	http_method: JString<'l>,
+	headers: JObject<'l>,
 	is_websocket: jboolean,
 ) -> jint {
 	// Convert JNI types into rust types
@@ -77,6 +80,9 @@ pub fn executeRequest<'l>(
 	let j_http_method = unsafe { env.get_string_unchecked(&http_method) }.unwrap();
 	let url: Cow<str> = j_url.deref().into();
 	let http_method: Cow<str> = j_http_method.deref().into();
+	let headers = jmap_to_hashmap(&mut env, &headers).expect("failed to get headers from jni");
+	let headers_map = HeaderMap::try_from(&headers).expect("failed to convert headers map");
+	let callbacks = env.new_global_ref(callbacks).unwrap();
 
 	// Parse url & http method
 	let url = match rquest::Url::parse(url.as_ref()) {
@@ -89,12 +95,13 @@ pub fn executeRequest<'l>(
 	};
 
 	// Retrieve rquest::Client from a pointer stored in the class
+	// SAFETY: This works as long as the Java-side invariant is preserved
 	if client_ptr == 0 { throw!(env, "Client is already closed!", -1); }
 	let client = unsafe { &*(client_ptr as *mut Client) }.clone();
 
 	// Create & setup request builder
-	let builder = client.request(http_method, url);
-	let callbacks = env.new_global_ref(callbacks).unwrap();
+	let builder = client.request(http_method, url)
+		.headers(headers_map);
 
 	if is_websocket > 0 {
 		execute_websocket(env, client, builder)
@@ -135,8 +142,24 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 		.expect("Unexpected HTTP version");
 	let version_jni = JValueGen::from(env.new_string(version).unwrap()).as_jni();
 
-	unsafe { env.call_method_unchecked(callbacks, &jni_cache::onResponse(), ReturnType::Primitive(Primitive::Void), &[status_jni, version_jni]) }
-		.expect("Failed to invoke onResponse callback");
+	// Convert the headers to jni
+	let mut headers_map = HashMap::with_capacity(response.headers().len());
+	for (name, value) in response.headers() {
+		headers_map.insert(name.as_str().to_string(), String::from_utf8_lossy(value.as_bytes()).to_string());
+	}
+	let headers_jni = hashmap_to_jmap(&mut env, &headers_map)
+		.map(|jobj| JValueGen::Object(jobj))
+		.expect("failed to convert headers map")
+		.as_jni();
+
+	unsafe {
+		env.call_method_unchecked(
+			callbacks,
+			&jni_cache::onResponse(),
+			ReturnType::Primitive(Primitive::Void),
+			&[version_jni, status_jni, headers_jni],
+		).expect("Failed to invoke onResponse callback");
+	};
 }
 
 fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error) {
@@ -144,10 +167,16 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 	let mut env = vm.get_env().expect("Thread is not attached to JavaVM");
 
 	let message = format!("Failed to execute request: {error}");
-	let message_jni = JValueGen::from(env.new_string(message).unwrap());
+	let message_jni = JValueGen::from(env.new_string(message).unwrap()).as_jni();
 
-	unsafe { env.call_method_unchecked(callbacks, &jni_cache::onError(), ReturnType::Primitive(Primitive::Void), &[message_jni.as_jni()]) }
-		.expect("Failed to invoke onError callback");
+	unsafe {
+		env.call_method_unchecked(
+			callbacks,
+			&jni_cache::onError(),
+			ReturnType::Primitive(Primitive::Void),
+			&[message_jni],
+		).expect("Failed to invoke onError callback");
+	}
 }
 
 // ------------------------ Other ------------------------ //
@@ -164,6 +193,36 @@ fn store_request_task(task: RequestTask) -> i32 {
 			}
 		}
 	}
+}
+
+fn hashmap_to_jmap<'local>(env: &mut JNIEnv<'local>, map: &HashMap<String, String>) -> jni::errors::Result<JObject<'local>> {
+	let map_object = env.new_object("java/util/LinkedHashMap", "()V", &[])?;
+	let jmap = JMap::from_env(env, &map_object)?;
+
+	for (k, v) in map {
+		let key = env.new_string(k)?;
+		let value = env.new_string(v)?;
+		jmap.put(env, &key, &value)?;
+	}
+	Ok(map_object)
+}
+
+fn jmap_to_hashmap(env: &mut JNIEnv, map_object: &JObject) -> jni::errors::Result<HashMap<String, String>> {
+	let jmap = JMap::from_env(env, &map_object)?;
+	let mut jmap_iter = jmap.iter(env)?;
+
+	let map_size = env.call_method(&map_object, "size", "()I", &[])?.i()?;
+	let mut map = HashMap::with_capacity(map_size as usize);
+
+	while let Some((key, value)) = jmap_iter.next(env)? {
+		let key = env.auto_local(JString::from(key));
+		let value = env.auto_local(JString::from(value));
+
+		let key = env.get_string(&*key)?;
+		let value = env.get_string(&*value)?;
+		map.insert(String::from(key), String::from(value));
+	}
+	Ok(map)
 }
 
 fn execute_request(mut env: JNIEnv, callbacks: GlobalRef, client: Client, builder: RequestBuilder) -> jint {

@@ -9,8 +9,7 @@ import io.ktor.http.*
 import io.ktor.util.*
 import io.ktor.util.date.*
 import kotlinx.coroutines.*
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.*
 
 @OptIn(InternalAPI::class)
 public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpClientEngineBase("ktor-impersonate") {
@@ -30,11 +29,15 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 
 			// Make callbacks to handle native request completion
 			val callbacks = object : Native.Callbacks() {
-				override fun onResponse(code: Int, version: String) {
+				override fun onResponse(version: String, code: Int, headers: Map<String, String>) {
 					val data = HttpResponseData(
 						statusCode = HttpStatusCode.fromValue(code),
 						requestTime = requestTime,
-						headers = Headers.Empty, // TODO: this
+						headers = headers {
+							for ((key, value) in headers) {
+								append(key, value)
+							}
+						},
 						version = HttpProtocolVersion.parse(version),
 						body = "", // TODO: this
 						callContext = callContext,
@@ -47,12 +50,13 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 				}
 			}
 
-			// Start request
+			// Start native request
 			requestId = Native.executeRequest(
 				clientPtr = nativeClientPtr,
 				callbacks = callbacks,
 				url = data.url.toString(),
 				httpMethod = data.method.value,
+				headers = data.headers.entries().associateByTo(LinkedHashMap(), { it.key }, { it.value.last() }),
 				isWebsocket = data.isUpgradeRequest(),
 			)
 

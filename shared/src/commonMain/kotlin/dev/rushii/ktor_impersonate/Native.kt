@@ -11,15 +11,25 @@ internal expect fun initializeNative()
 internal object Native {
 	@JvmStatic
 	external fun createClient(config: ImpersonateConfig): Long
+
 	@JvmStatic
 	external fun destroyClient(clientPtr: Long)
+
 	@JvmStatic
-	external fun executeRequest(clientPtr: Long, callbacks: Callbacks, url: String, httpMethod: String, isWebsocket: Boolean): Int
+	external fun executeRequest(
+		clientPtr: Long,
+		callbacks: Callbacks,
+		url: String,
+		httpMethod: String,
+		headers: Map<String, String>,
+		isWebsocket: Boolean,
+	): Int
+
 	@JvmStatic
 	external fun cancelRequest(requestId: Int)
 
 	abstract class Callbacks {
-		abstract fun onResponse(code: Int, version: String)
+		abstract fun onResponse(version: String, code: Int, headers: Map<String, String>)
 		abstract fun onError(message: String)
 	}
 }
