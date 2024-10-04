@@ -190,7 +190,7 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 [[package]]
 name = "catch_panic"
 version = "1.0.0"
-source = "git+https://github.com/sorz/catch_panic.git?rev=92d4158#92d4158065e0b8de5169ba5fa6f05a6321d28a8d"
+source = "git+https://github.com/rushiiMachine/catch_panic.git?rev=7ce5a28#7ce5a28bac8323d1b90d89abb3eb411ff2c9bf7e"
 dependencies = [
  "catch_panic_macros",
  "jni",
@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "catch_panic_macros"
 version = "1.0.0"
-source = "git+https://github.com/sorz/catch_panic.git?rev=92d4158#92d4158065e0b8de5169ba5fa6f05a6321d28a8d"
+source = "git+https://github.com/rushiiMachine/catch_panic.git?rev=7ce5a28#7ce5a28bac8323d1b90d89abb3eb411ff2c9bf7e"
 dependencies = [
  "proc-macro2",
  "quote",
