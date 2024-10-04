@@ -44,9 +44,6 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
 
 // Note: This is never called on Android
 #[no_mangle]
-pub extern "system" fn JNI_OnUnload(vm: JavaVM, _reserved: c_void) {
-	let env = vm.get_env().unwrap();
-
-	// Delete all references in JNI ref cache
-	jni_cache::release_cache(env);
+pub extern "system" fn JNI_OnUnload(_vm: JavaVM, _reserved: c_void) {
+	jni_cache::release_cache();
 }

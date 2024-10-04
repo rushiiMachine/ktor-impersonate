@@ -41,13 +41,13 @@ macro_rules! clear_refs {
 	($($name:ident,)*) => { paste::paste! {
 		$(
 		[<INNER_ $name>].lock()
-		.expect("jni_cache mutex lock fail")
-		.take();
+			.expect("jni_cache mutex lock fail")
+			.take();
 		)*
 	}};
 }
 
-cache_ref!(InvalidArgumentException: GlobalRef);
+cache_ref!(IllegalArgumentException: GlobalRef);
 cache_ref!(RuntimeException: GlobalRef);
 cache_ref!(NativeCallbacks: GlobalRef);
 cache_ref!(onResponse: JMethodID);
@@ -61,20 +61,20 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 			.expect("failed to get class for jni_cache member")
 	}
 
-	init_InvalidArgumentException(class_ref(&mut env, "java/lang/InvalidArgumentException"));
+	init_IllegalArgumentException(class_ref(&mut env, "java/lang/IllegalArgumentException"));
 	init_RuntimeException(class_ref(&mut env, "java/lang/RuntimeException"));
 	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks"));
-	init_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(ILjava/lang/String;)V").unwrap());
+	init_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILjava/util/Map;)V").unwrap());
 	init_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	true
 }
 
-/// Class refs should be deleted after all their member IDs have been.
-/// Otherwise, if the class gets unloaded by the JVM, all the method/field IDs become invalid.s
-#[catch_panic(default = "false")]
-pub(super) fn release_cache(env: JNIEnv) -> bool {
+/// Release all the [`GlobalRef`]s from this cache.
+// GlobalRefs of classes should be deleted after all the member IDs for that class have been.
+// Otherwise, when the class gets unloaded by the JVM, all the method/field IDs become invalid.
+pub(super) fn release_cache() -> bool {
 	clear_refs!(
-		InvalidArgumentException,
+		IllegalArgumentException,
 		RuntimeException,
 
 		onResponse,

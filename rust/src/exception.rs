@@ -1,4 +1,4 @@
-/// Throw a `InvalidArgumentException` and early return with/without a value.
+/// Throw a `IllegalArgumentException` and early return with/without a value.
 /// Examples:
 /// ```rs
 /// let env: &mut JNIEnv = ...;
@@ -8,11 +8,11 @@
 #[macro_export]
 macro_rules! throw_argument {
 	($env:ident, $msg:expr) => {{
-		$env.throw_new(&crate::jni_cache::InvalidArgumentException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::IllegalArgumentException(), $msg).expect("failed to throw error");
 		return;
 	}};
     ($env:ident, $msg:expr, $ret:expr) => {{
-		$env.throw_new(&crate::jni_cache::InvalidArgumentException(), $msg).expect("failed to throw error");
+		$env.throw_new(&crate::jni_cache::IllegalArgumentException(), $msg).expect("failed to throw error");
 		return $ret;
 	}};
 }
