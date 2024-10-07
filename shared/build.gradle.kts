@@ -17,6 +17,9 @@ kotlin {
 	explicitApi()
 
 	sourceSets {
+		androidInstrumentedTest.dependencies {
+			implementation(libs.bundles.instrumentedTests)
+		}
 		commonMain.dependencies {
 			implementation(libs.ktor)
 		}
@@ -48,6 +51,8 @@ android {
 
 	defaultConfig {
 		minSdk = 21
+
+		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
 	compileOptions {

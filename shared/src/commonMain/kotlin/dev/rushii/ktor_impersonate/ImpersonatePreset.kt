@@ -2,10 +2,13 @@
 
 package dev.rushii.ktor_impersonate
 
+import kotlin.jvm.JvmInline
+
 /**
  * Preconfigured TLS, HTTP 2.0, and default headers mimicking a specific browser or HTTP client.
  * Preset info can be viewed [here](https://github.com/penumbra-x/rqeust/tree/c69d54e9bcc972280b244e302b0e5751f74d6f88/src/tls/impersonate).
  */
+@JvmInline
 public value class ImpersonatePreset private constructor(private val presetName: String) {
 	public companion object {
 		// Chrome

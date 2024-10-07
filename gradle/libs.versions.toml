@@ -6,8 +6,15 @@ ragp = "0.9.4"
 binaryValidator = "0.16.3"
 
 [libraries]
+androidx-ext-junit = "androidx.test.ext:junit:1.2.1"
+androidx-ext-junitKtx = "androidx.test.ext:junit-ktx:1.2.1"
+androidx-runner = "androidx.test:runner:1.6.2"
+junit = "junit:junit:4.13.2"
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 ktor = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+
+[bundles]
+instrumentedTests = ["androidx-ext-junit", "androidx-ext-junitKtx", "androidx-runner", "junit"]
 
 [plugins]
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
