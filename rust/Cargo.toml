@@ -8,6 +8,13 @@ publish = false
 name = "ktorimpersonate"
 crate-type = ["cdylib"]
 
+# Optimize for size
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+
 [dependencies]
 arraystring = "0.3.0"
 #catch_panic = { git = "https://github.com/sorz/catch_panic.git", rev = "92d4158" } # https://github.com/HermitSocialClub/catch_panic/pull/2
