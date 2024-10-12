@@ -6,12 +6,11 @@ import io.ktor.client.engine.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.util.*
 import io.ktor.util.date.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import kotlin.coroutines.*
 
-@OptIn(InternalAPI::class)
 public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpClientEngineBase("ktor-impersonate") {
 	// Pointer to the native rquest client.
 	private var nativeClientPtr: Long = Native.createClient(config)
@@ -20,6 +19,7 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 	override val supportedCapabilities: Set<HttpClientEngineCapability<*>>
 		get() = setOf(WebSocketCapability, WebSocketExtensionsCapability)
 
+	@OptIn(InternalAPI::class)
 	override suspend fun execute(data: HttpRequestData): HttpResponseData {
 		val callContext = callContext()
 		val requestTime = GMTDate()
