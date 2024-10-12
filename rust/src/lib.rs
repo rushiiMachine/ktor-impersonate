@@ -1,6 +1,7 @@
 pub(crate) mod jni_cache;
 pub(crate) mod exception;
 mod methods;
+pub(crate) mod root_certs;
 
 use jni::sys::{jint, JNI_ERR, JNI_VERSION_1_6};
 use jni::JavaVM;
@@ -15,7 +16,7 @@ pub(crate) static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
 	let mut env = vm.get_env().unwrap();
 
-	// Initialize logging backed per-platform
+	// Initialize logging backend for each platform
 	#[cfg(target_os = "android")]
 	android_log::init("KtorImpersonateNative").unwrap();
 

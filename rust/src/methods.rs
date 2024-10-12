@@ -1,3 +1,4 @@
+use crate::root_certs::get_cached_verify_store;
 use crate::{jni_cache, throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
 use arraystring::ArrayString;
@@ -38,7 +39,8 @@ pub fn createClient<'l>(
 	_cls: JClass<'l>,
 	_config: JObject<'l>,
 ) -> jlong {
-	let builder = Client::builder();
+	let builder = Client::builder()
+		.ca_cert_store(get_cached_verify_store());
 
 	let client_ptr = match builder.build() {
 		Ok(client) => Box::leak(Box::new(client)) as *const Client,
@@ -141,7 +143,7 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 	let mut version = ArrayString::<U8>::new();
 	write!(version, "{:?}", response.version())
 		.expect("Unexpected HTTP version");
-	let version_jni = JValueGen::from(env.new_string(version).unwrap()).as_jni();
+	let version_jni = JValueOwned::from(env.new_string(version).unwrap()).as_jni();
 
 	// Convert the headers to jni
 	let mut headers_map = HashMap::with_capacity(response.headers().len());
@@ -149,7 +151,7 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 		headers_map.insert(name.as_str().to_string(), String::from_utf8_lossy(value.as_bytes()).to_string());
 	}
 	let headers_jni = hashmap_to_jmap(&mut env, &headers_map)
-		.map(|jobj| JValueGen::Object(jobj))
+		.map(|jobj| JValueOwned::from(jobj))
 		.expect("failed to convert headers map")
 		.as_jni();
 
