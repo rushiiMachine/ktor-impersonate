@@ -1,3 +1,4 @@
+use crate::jni::cache;
 use crate::root_certs::get_cached_verify_store;
 use crate::{throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
@@ -20,7 +21,6 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use tokio::task::AbortHandle;
-use crate::jni::cache;
 
 /// Request tasks that have not yet completed (including long-lived websockets)
 /// This is in order to be able to cancel currently running requests.
@@ -244,9 +244,11 @@ fn execute_request(mut env: JNIEnv, callbacks: GlobalRef, client: Client, builde
 		Err(err) => throw!(env, &*format!("Failed to build request: {err}"), -1),
 	};
 
-	let tokio = TOKIO_RUNTIME.get().expect("Tokio runtime not initialized");
+	let runtime_lock = TOKIO_RUNTIME.read().expect("runtime lock poisoned");
+	let runtime = runtime_lock.as_ref().expect("runtime not initialized");
+
 	let vm = env.get_java_vm().unwrap();
-	let handle = tokio.spawn(async move {
+	let handle = runtime.spawn(async move {
 		match client.execute(request).await {
 			Err(err) => callback_request_error(vm, callbacks, err),
 			Ok(resp) => callback_response(vm, callbacks, resp),

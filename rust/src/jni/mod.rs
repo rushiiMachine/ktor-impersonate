@@ -25,15 +25,19 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
 	let vm_copy = unsafe { JavaVM::from_raw(vm.get_java_vm_pointer()) }.unwrap();
 
 	// Initialize global tokio runtime
+	let mut runtime_mut = TOKIO_RUNTIME.write().expect("runtime lock poisoned");
 	let runtime = tokio::runtime::Builder::new_multi_thread()
 		.on_thread_start(move || { vm_copy.attach_current_thread_as_daemon().expect("failed to attach worker thread to JVM"); })
 		.enable_time()
 		.enable_io()
 		.build();
 	match runtime {
-		Ok(rt) => TOKIO_RUNTIME.set(rt).expect("tokio runtime already initialized"),
 		Err(err) => throw!(env, &*format!("Failed to initialize tokio runtime: {err}"), JNI_ERR),
-	}
+		Ok(rt) => {
+			*runtime_mut = Some(rt);
+			drop(runtime_mut);
+		}
+	};
 
 	JNI_VERSION_1_6
 }
@@ -42,4 +46,7 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
 #[no_mangle]
 pub extern "system" fn JNI_OnUnload(_vm: JavaVM, _reserved: c_void) {
 	cache::release_cache();
+
+	// Shutdown the tokio runtime
+	drop(TOKIO_RUNTIME.write().expect("runtime lock poisoned").take());
 }
