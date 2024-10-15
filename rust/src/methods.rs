@@ -39,8 +39,13 @@ pub fn createClient<'l>(
 	_cls: JClass<'l>,
 	_config: JObject<'l>,
 ) -> jlong {
-	let builder = Client::builder()
-		.ca_cert_store(get_cached_verify_store());
+	let mut builder = Client::builder();
+
+	// TODO: only run if not http only
+	match get_cached_verify_store() {
+		Ok(store) => builder = builder.ca_cert_store(store),
+		Err(err) => throw!(env, &*format!("Failed to load certificates: {err:#?}"), 0),
+	}
 
 	let client_ptr = match builder.build() {
 		Ok(client) => Box::leak(Box::new(client)) as *const Client,

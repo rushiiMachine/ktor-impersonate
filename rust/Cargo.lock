@@ -1011,9 +1011,9 @@ dependencies = [
 
 [[package]]
 name = "rquest"
-version = "0.22.2"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54e9e471929d90378a51dd210ba4178df5a22be85679c4d96f205a2cd5c4da2"
+checksum = "d9ecc29dc2c99d8ed9ef071b9acd82c6008a303ebd1ad6d23678f1df18f56ff7"
 dependencies = [
  "antidote",
  "async-tungstenite",
@@ -1038,7 +1038,6 @@ dependencies = [
  "rboring-sys",
  "rh2",
  "rhyper",
- "rustls-native-certs",
  "serde",
  "serde_urlencoded",
  "system-configuration",
