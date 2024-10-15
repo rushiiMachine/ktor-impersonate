@@ -11,7 +11,7 @@ macro_rules! cache_ref {
 		/// Unwraps this cache member as long as `JNI_OnUnload` has not been called yet.
 		/// The values returned by this should be disposed of as quickly as possible and not held.
 		#[allow(non_snake_case)]
-		pub(crate) fn $name() -> $ty
+		pub fn $name() -> $ty
 			where $ty: Clone
 		{
 			[<INNER_ $name>].lock()

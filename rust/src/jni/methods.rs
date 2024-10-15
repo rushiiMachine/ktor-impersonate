@@ -1,5 +1,5 @@
 use crate::root_certs::get_cached_verify_store;
-use crate::{jni_cache, throw, throw_argument, TOKIO_RUNTIME};
+use crate::{throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
 use arraystring::ArrayString;
 use catch_panic::catch_panic;
@@ -20,6 +20,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use tokio::task::AbortHandle;
+use crate::jni::cache;
 
 /// Request tasks that have not yet completed (including long-lived websockets)
 /// This is in order to be able to cancel currently running requests.
@@ -164,7 +165,7 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
-			&jni_cache::onResponse(),
+			&cache::onResponse(),
 			ReturnType::Primitive(Primitive::Void),
 			&[version_jni, status_jni, headers_jni],
 		).expect("Failed to invoke onResponse callback");
@@ -182,7 +183,7 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
-			&jni_cache::onError(),
+			&cache::onError(),
 			ReturnType::Primitive(Primitive::Void),
 			&[message_jni],
 		).expect("Failed to invoke onError callback");
