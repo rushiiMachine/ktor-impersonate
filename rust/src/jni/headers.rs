@@ -1,4 +1,4 @@
-use crate::jni::cache;
+use crate::jni::{cache, utils};
 use crate::throw_argument;
 use jni::errors::Error as JNIError;
 use jni::objects::{JObject, JObjectArray, JString, JValue, JValueGen, JValueOwned};
@@ -87,7 +87,7 @@ pub fn jni_to_headers(env: &mut JNIEnv, headers_obj: &JObject) -> Result<HeaderM
 			)
 		}?.l()?;
 		let values_list = env.auto_local(values_list);
-		let values = unsafe { get_string_list_values(env, &*values_list) }?;
+		let values = unsafe { utils::get_string_list_values(env, &*values_list) }?;
 
 		let header_name = match HeaderName::from_str(&*key_string) {
 			Ok(v) => v,
@@ -119,23 +119,4 @@ unsafe fn get_stringvalues_keys<'local>(
 
 	let keys_array_obj = env.call_method_unchecked(&keys_set, cache::Set_toArray(), ReturnType::Array, &[])?.l()?;
 	Ok(JObjectArray::from(keys_array_obj))
-}
-
-/// Gets all the values contained within a List<String>
-/// [list_obj]: Must be an instance of `java/util/List` with generic type T as `java/lang/String`.
-unsafe fn get_string_list_values(env: &mut JNIEnv, list_obj: &JObject) -> Result<Vec<String>, JNIError> {
-	let array = env.call_method_unchecked(list_obj, cache::List_toArray(), ReturnType::Array, &[])?.l()?;
-	let array = env.auto_local(JObjectArray::from(array));
-	let array_length = env.get_array_length(&*array)?;
-
-	let mut vec: Vec<String> = Vec::with_capacity(array_length as usize);
-
-	for i in 0..array_length {
-		let item = env.get_object_array_element(&*array, i)?;
-		let item = env.auto_local(JString::from(item));
-
-		let string = env.get_string_unchecked(&*item)?;
-		vec.push(string.into());
-	}
-	Ok(vec)
 }

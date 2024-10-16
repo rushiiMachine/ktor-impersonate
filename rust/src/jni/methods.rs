@@ -1,7 +1,6 @@
-use crate::jni::cache;
 use crate::jni::headers::{headers_to_jni, jni_to_headers};
-use crate::root_certs::get_cached_verify_store;
-use crate::{throw, throw_argument, TOKIO_RUNTIME};
+use crate::jni::{cache, config};
+use crate::{root_certs, throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
 use arraystring::ArrayString;
 use catch_panic::catch_panic;
@@ -37,12 +36,14 @@ enum RequestTask {
 pub fn createClient<'l>(
 	mut env: JNIEnv<'l>,
 	_cls: JClass<'l>,
-	_config: JObject<'l>,
+	config: JObject<'l>,
 ) -> jlong {
 	let mut builder = Client::builder();
 
-	// TODO: only run if not http only
-	match get_cached_verify_store() {
+	builder = config::apply_jni_config(&mut env, &config, builder)
+		.expect("failed to apply config");
+
+	match root_certs::get_cached_verify_store() {
 		Ok(store) => builder = builder.ca_cert_store(store),
 		Err(err) => throw!(env, &*format!("Failed to load certificates: {err:#?}"), 0),
 	}

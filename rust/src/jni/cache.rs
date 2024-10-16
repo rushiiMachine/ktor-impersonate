@@ -48,14 +48,28 @@ macro_rules! clear_refs {
 }
 
 // Java Stdlib
+cache_ref!(Boolean: GlobalRef);
+cache_ref!(Boolean_booleanValue: JMethodID);
+cache_ref!(Class: GlobalRef);
+cache_ref!(Class_getName: JMethodID);
 cache_ref!(IllegalArgumentException: GlobalRef);
-cache_ref!(RuntimeException: GlobalRef);
 cache_ref!(List: GlobalRef);
 cache_ref!(List_toArray: JMethodID);
+cache_ref!(Long: GlobalRef);
+cache_ref!(Long_longValue: JMethodID);
+cache_ref!(RuntimeException: GlobalRef);
 cache_ref!(Set: GlobalRef);
 cache_ref!(Set_toArray: JMethodID);
 
 // ktor-impersonate
+cache_ref!(ImpersonateConfig: GlobalRef);
+cache_ref!(ImpersonateConfig_getVerboseLogging: JMethodID);
+cache_ref!(ImpersonateConfig_getPreset: JMethodID);
+cache_ref!(ImpersonateConfig_getRequestTimeoutMillis: JMethodID);
+cache_ref!(ImpersonateConfig_getConnectTimeoutMillis: JMethodID);
+cache_ref!(ImpersonateConfig_getIdleTimeout: JMethodID);
+cache_ref!(ImpersonateConfig_getAllowInvalidCertificates: JMethodID);
+cache_ref!(ImpersonateConfig_getHttpsOnly: JMethodID);
 cache_ref!(NativeCallbacks: GlobalRef);
 cache_ref!(NativeCallbacks_onError: JMethodID);
 cache_ref!(NativeCallbacks_onResponse: JMethodID);
@@ -79,15 +93,35 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 	}
 
 	// TODO: better errors when failing to unwrap so users can figure out proguard issues
+
+	// Java Stdlib
+	init_Boolean(class_ref(&mut env, "java/lang/Boolean"));
+	init_Boolean_booleanValue(env.get_method_id(&Boolean(), "booleanValue", "()Z").unwrap());
+	init_Class(class_ref(&mut env, "java/lang/Class"));
+	init_Class_getName(env.get_method_id(&Class(), "getName", "()Ljava/lang/String;").unwrap());
 	init_IllegalArgumentException(class_ref(&mut env, "java/lang/IllegalArgumentException"));
-	init_RuntimeException(class_ref(&mut env, "java/lang/RuntimeException"));
 	init_List(class_ref(&mut env, "java/util/List"));
 	init_List_toArray(env.get_method_id(&List(), "toArray", "()[Ljava/lang/Object;").unwrap());
+	init_Long(class_ref(&mut env, "java/lang/Long"));
+	init_Long_longValue(env.get_method_id(&Long(), "longValue", "()J").unwrap());
+	init_RuntimeException(class_ref(&mut env, "java/lang/RuntimeException"));
 	init_Set(class_ref(&mut env, "java/util/Set"));
 	init_Set_toArray(env.get_method_id(&Set(), "toArray", "()[Ljava/lang/Object;").unwrap());
+
+	// ktor-impersonate
+	init_ImpersonateConfig(class_ref(&mut env, "dev/rushii/ktor_impersonate/ImpersonateConfig"));
+	init_ImpersonateConfig_getVerboseLogging(env.get_method_id(&ImpersonateConfig(), "getVerboseLogging", "()Z").unwrap());
+	init_ImpersonateConfig_getPreset(env.get_method_id(&ImpersonateConfig(), "getPreset", "()Ljava/lang/String;").unwrap());
+	init_ImpersonateConfig_getRequestTimeoutMillis(env.get_method_id(&ImpersonateConfig(), "getRequestTimeoutMillis", "()Ljava/lang/Long;").unwrap());
+	init_ImpersonateConfig_getConnectTimeoutMillis(env.get_method_id(&ImpersonateConfig(), "getConnectTimeoutMillis", "()Ljava/lang/Long;").unwrap());
+	init_ImpersonateConfig_getIdleTimeout(env.get_method_id(&ImpersonateConfig(), "getIdleTimeout", "()Ljava/lang/Long;").unwrap());
+	init_ImpersonateConfig_getAllowInvalidCertificates(env.get_method_id(&ImpersonateConfig(), "getAllowInvalidCertificates", "()Ljava/lang/Boolean;").unwrap());
+	init_ImpersonateConfig_getHttpsOnly(env.get_method_id(&ImpersonateConfig(), "getHttpsOnly", "()Ljava/lang/Boolean;").unwrap());
 	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks"));
 	init_NativeCallbacks_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	init_NativeCallbacks_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILio/ktor/http/Headers;)V").unwrap());
+
+	// Ktor
 	init_HeadersBuilder(class_ref(&mut env, "io/ktor/http/HeadersBuilder"));
 	init_HeadersBuilder_build(env.get_method_id(&HeadersBuilder(), "build", "()Lio/ktor/http/Headers;").unwrap());
 	init_HeadersBuilder_init(env.get_method_id(&HeadersBuilder(), "<init>", "(I)V").unwrap());
@@ -102,17 +136,34 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 /// Release all the [`GlobalRef`]s from this cache.
 // GlobalRefs of classes should be deleted after all the member IDs for that class have been.
 // Otherwise, when the class gets unloaded by the JVM, all the method/field IDs become invalid.
-pub(super) fn release_cache() -> bool {
+pub(super) fn release_cache() {
 	clear_refs!(
+		// Java Stdlib
+		Class_getName,
+		Class,
 		IllegalArgumentException,
 		RuntimeException,
 		List_toArray,
 		List,
+		Long_longValue,
+		Long,
 		Set_toArray,
 		Set,
+
+		// ktor-impersonate
+		ImpersonateConfig_getVerboseLogging,
+		ImpersonateConfig_getPreset,
+		ImpersonateConfig_getRequestTimeoutMillis,
+		ImpersonateConfig_getConnectTimeoutMillis,
+		ImpersonateConfig_getIdleTimeout,
+		ImpersonateConfig_getAllowInvalidCertificates,
+		ImpersonateConfig_getHttpsOnly,
+		ImpersonateConfig,
 		NativeCallbacks_onError,
 		NativeCallbacks_onResponse,
 		NativeCallbacks,
+
+		// Ktor
 		HeadersBuilder_build,
 		HeadersBuilder_init,
 		HeadersBuilder,
@@ -122,5 +173,4 @@ pub(super) fn release_cache() -> bool {
 		StringValuesBuilder_append,
 		StringValuesBuilder,
 	);
-	true
 }

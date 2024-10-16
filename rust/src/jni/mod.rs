@@ -7,6 +7,8 @@ mod exception;
 mod cache;
 mod methods;
 mod headers;
+mod config;
+mod utils;
 
 #[no_mangle]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
