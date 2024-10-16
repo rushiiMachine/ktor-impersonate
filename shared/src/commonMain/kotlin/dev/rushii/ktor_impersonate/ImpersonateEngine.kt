@@ -29,15 +29,11 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 
 			// Make callbacks to handle native request completion
 			val callbacks = object : Native.Callbacks() {
-				override fun onResponse(version: String, code: Int, headers: Map<String, String>) {
+				override fun onResponse(version: String, code: Int, headers: Headers) {
 					val data = HttpResponseData(
 						statusCode = HttpStatusCode.fromValue(code),
 						requestTime = requestTime,
-						headers = headers {
-							for ((key, value) in headers) {
-								append(key, value)
-							}
-						},
+						headers = headers,
 						version = HttpProtocolVersion.parse(version),
 						body = "", // TODO: this
 						callContext = callContext,
@@ -56,7 +52,7 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 				callbacks = callbacks,
 				url = data.url.toString(),
 				httpMethod = data.method.value,
-				headers = data.headers.entries().associateByTo(LinkedHashMap(), { it.key }, { it.value.last() }),
+				headers = data.headers,
 				isWebsocket = data.isUpgradeRequest(),
 			)
 

@@ -47,11 +47,28 @@ macro_rules! clear_refs {
 	}};
 }
 
+// Java Stdlib
 cache_ref!(IllegalArgumentException: GlobalRef);
 cache_ref!(RuntimeException: GlobalRef);
+cache_ref!(List: GlobalRef);
+cache_ref!(List_toArray: JMethodID);
+cache_ref!(Set: GlobalRef);
+cache_ref!(Set_toArray: JMethodID);
+
+// ktor-impersonate
 cache_ref!(NativeCallbacks: GlobalRef);
-cache_ref!(onResponse: JMethodID);
-cache_ref!(onError: JMethodID);
+cache_ref!(NativeCallbacks_onError: JMethodID);
+cache_ref!(NativeCallbacks_onResponse: JMethodID);
+
+// Ktor
+cache_ref!(HeadersBuilder: GlobalRef);
+cache_ref!(HeadersBuilder_build: JMethodID);
+cache_ref!(HeadersBuilder_init: JMethodID);
+cache_ref!(StringValues: GlobalRef);
+cache_ref!(StringValues_getAll: JMethodID);
+cache_ref!(StringValues_names: JMethodID);
+cache_ref!(StringValuesBuilder: GlobalRef);
+cache_ref!(StringValuesBuilder_append: JMethodID);
 
 #[catch_panic(default = "false")]
 pub(super) fn init_cache(mut env: JNIEnv) -> bool {
@@ -61,11 +78,24 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 			.expect("failed to get class for jni_cache member")
 	}
 
+	// TODO: better errors when failing to unwrap so users can figure out proguard issues
 	init_IllegalArgumentException(class_ref(&mut env, "java/lang/IllegalArgumentException"));
 	init_RuntimeException(class_ref(&mut env, "java/lang/RuntimeException"));
+	init_List(class_ref(&mut env, "java/util/List"));
+	init_List_toArray(env.get_method_id(&List(), "toArray", "()[Ljava/lang/Object;").unwrap());
+	init_Set(class_ref(&mut env, "java/util/Set"));
+	init_Set_toArray(env.get_method_id(&Set(), "toArray", "()[Ljava/lang/Object;").unwrap());
 	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks"));
-	init_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILjava/util/Map;)V").unwrap());
-	init_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
+	init_NativeCallbacks_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
+	init_NativeCallbacks_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILio/ktor/http/Headers;)V").unwrap());
+	init_HeadersBuilder(class_ref(&mut env, "io/ktor/http/HeadersBuilder"));
+	init_HeadersBuilder_build(env.get_method_id(&HeadersBuilder(), "build", "()Lio/ktor/http/Headers;").unwrap());
+	init_HeadersBuilder_init(env.get_method_id(&HeadersBuilder(), "<init>", "(I)V").unwrap());
+	init_StringValues(class_ref(&mut env, "io/ktor/util/StringValues"));
+	init_StringValues_getAll(env.get_method_id(&StringValues(), "getAll", "(Ljava/lang/String;)Ljava/util/List;").unwrap());
+	init_StringValues_names(env.get_method_id(&StringValues(), "names", "()Ljava/util/Set;").unwrap());
+	init_StringValuesBuilder(class_ref(&mut env, "io/ktor/util/StringValuesBuilder"));
+	init_StringValuesBuilder_append(env.get_method_id(&StringValuesBuilder(), "append", "(Ljava/lang/String;Ljava/lang/String;)V").unwrap());
 	true
 }
 
@@ -76,11 +106,21 @@ pub(super) fn release_cache() -> bool {
 	clear_refs!(
 		IllegalArgumentException,
 		RuntimeException,
-
-		onResponse,
-		onError,
+		List_toArray,
+		List,
+		Set_toArray,
+		Set,
+		NativeCallbacks_onError,
+		NativeCallbacks_onResponse,
 		NativeCallbacks,
+		HeadersBuilder_build,
+		HeadersBuilder_init,
+		HeadersBuilder,
+		StringValues_getAll,
+		StringValues_names,
+		StringValues,
+		StringValuesBuilder_append,
+		StringValuesBuilder,
 	);
-
 	true
 }

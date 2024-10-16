@@ -6,6 +6,7 @@ use std::ffi::c_void;
 mod exception;
 mod cache;
 mod methods;
+mod headers;
 
 #[no_mangle]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {

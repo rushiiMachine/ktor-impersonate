@@ -1,21 +1,20 @@
 use crate::jni::cache;
+use crate::jni::headers::{headers_to_jni, jni_to_headers};
 use crate::root_certs::get_cached_verify_store;
 use crate::{throw, throw_argument, TOKIO_RUNTIME};
 use arraystring::typenum::U8;
 use arraystring::ArrayString;
 use catch_panic::catch_panic;
 use dashmap::{DashMap, Entry};
-use jni::objects::{GlobalRef, JClass, JMap, JObject, JString, JValueGen, JValueOwned};
+use jni::objects::{GlobalRef, JClass, JObject, JString, JValueGen, JValueOwned};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jboolean, jint, jlong};
 use jni::{JNIEnv, JavaVM};
 use jni_fn::jni_fn;
 use log::debug;
 use rand::Rng;
-use rquest::header::HeaderMap;
 use rquest::{Client, RequestBuilder, Response};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -89,8 +88,7 @@ pub fn executeRequest<'l>(
 	let j_http_method = unsafe { env.get_string_unchecked(&http_method) }.unwrap();
 	let url: Cow<str> = j_url.deref().into();
 	let http_method: Cow<str> = j_http_method.deref().into();
-	let headers = jmap_to_hashmap(&mut env, &headers).expect("failed to get headers from jni");
-	let headers_map = HeaderMap::try_from(&headers).expect("failed to convert headers map");
+	let headers = jni_to_headers(&mut env, &headers).expect("failed to get headers from jni");
 	let callbacks = env.new_global_ref(callbacks).unwrap();
 
 	// Parse url & http method
@@ -110,7 +108,7 @@ pub fn executeRequest<'l>(
 
 	// Create & setup request builder
 	let builder = client.request(http_method, url)
-		.headers(headers_map);
+		.headers(headers);
 
 	if is_websocket > 0 {
 		execute_websocket(env, client, builder)
@@ -152,20 +150,16 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 	let version_jni = JValueOwned::from(env.new_string(version).unwrap()).as_jni();
 
 	// Convert the headers to jni
-	let mut headers_map = HashMap::with_capacity(response.headers().len());
-	for (name, value) in response.headers() {
-		headers_map.insert(name.as_str().to_string(), String::from_utf8_lossy(value.as_bytes()).to_string());
-	}
-	let headers_jni = hashmap_to_jmap(&mut env, &headers_map)
-		.map(|jobj| JValueOwned::from(jobj))
-		.expect("failed to convert headers map")
+	let headers_jni = headers_to_jni(&mut env, response.headers())
+		.map(JValueOwned::from)
+		.expect("failed to convert headers map") // TODO: return error like callback_request_error does
 		.as_jni();
 
 	// SAFETY: Method ID is always valid and sig types are correct
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
-			&cache::onResponse(),
+			&cache::NativeCallbacks_onResponse(),
 			ReturnType::Primitive(Primitive::Void),
 			&[version_jni, status_jni, headers_jni],
 		).expect("Failed to invoke onResponse callback");
@@ -183,7 +177,7 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 	unsafe {
 		env.call_method_unchecked(
 			callbacks,
-			&cache::onError(),
+			&cache::NativeCallbacks_onError(),
 			ReturnType::Primitive(Primitive::Void),
 			&[message_jni],
 		).expect("Failed to invoke onError callback");
@@ -204,36 +198,6 @@ fn store_request_task(task: RequestTask) -> i32 {
 			}
 		}
 	}
-}
-
-fn hashmap_to_jmap<'local>(env: &mut JNIEnv<'local>, map: &HashMap<String, String>) -> jni::errors::Result<JObject<'local>> {
-	let map_object = env.new_object("java/util/LinkedHashMap", "()V", &[])?;
-	let jmap = JMap::from_env(env, &map_object)?;
-
-	for (k, v) in map {
-		let key = env.new_string(k)?;
-		let value = env.new_string(v)?;
-		jmap.put(env, &key, &value)?;
-	}
-	Ok(map_object)
-}
-
-fn jmap_to_hashmap(env: &mut JNIEnv, map_object: &JObject) -> jni::errors::Result<HashMap<String, String>> {
-	let jmap = JMap::from_env(env, &map_object)?;
-	let mut jmap_iter = jmap.iter(env)?;
-
-	let map_size = env.call_method(&map_object, "size", "()I", &[])?.i()?;
-	let mut map = HashMap::with_capacity(map_size as usize);
-
-	while let Some((key, value)) = jmap_iter.next(env)? {
-		let key = env.auto_local(JString::from(key));
-		let value = env.auto_local(JString::from(value));
-
-		let key = env.get_string(&*key)?;
-		let value = env.get_string(&*value)?;
-		map.insert(String::from(key), String::from(value));
-	}
-	Ok(map)
 }
 
 fn execute_request(mut env: JNIEnv, callbacks: GlobalRef, client: Client, builder: RequestBuilder) -> jint {

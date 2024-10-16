@@ -1,5 +1,6 @@
 package dev.rushii.ktor_impersonate
 
+import io.ktor.http.Headers
 import kotlin.jvm.JvmStatic
 
 /**
@@ -21,7 +22,7 @@ internal object Native {
 		callbacks: Callbacks,
 		url: String,
 		httpMethod: String,
-		headers: Map<String, String>,
+		headers: Headers,
 		isWebsocket: Boolean,
 	): Int
 
@@ -29,7 +30,7 @@ internal object Native {
 	external fun cancelRequest(requestId: Int)
 
 	abstract class Callbacks {
-		abstract fun onResponse(version: String, code: Int, headers: Map<String, String>)
+		abstract fun onResponse(version: String, code: Int, headers: Headers)
 		abstract fun onError(message: String)
 	}
 }
