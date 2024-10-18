@@ -1,5 +1,6 @@
-package dev.rushii.ktor_impersonate
+package dev.rushii.ktor_impersonate.internal
 
+import dev.rushii.ktor_impersonate.ImpersonateConfig
 import io.ktor.http.Headers
 import kotlin.jvm.JvmStatic
 

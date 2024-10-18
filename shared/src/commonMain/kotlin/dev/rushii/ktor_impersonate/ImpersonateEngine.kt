@@ -2,6 +2,7 @@
 
 package dev.rushii.ktor_impersonate
 
+import dev.rushii.ktor_impersonate.internal.*
 import io.ktor.client.engine.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
