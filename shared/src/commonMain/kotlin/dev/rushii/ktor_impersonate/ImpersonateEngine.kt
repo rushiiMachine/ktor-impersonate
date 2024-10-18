@@ -2,6 +2,7 @@
 
 package dev.rushii.ktor_impersonate
 
+import dev.rushii.ktor_impersonate.internal.*
 import io.ktor.client.engine.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
@@ -13,7 +14,7 @@ import kotlin.coroutines.*
 
 public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpClientEngineBase("ktor-impersonate") {
 	// Pointer to the native rquest client.
-	private var nativeClientPtr: Long = Native.createClient(config)
+	private var nativeClientPtr: Long = NativeEngine.createClient(config)
 
 	// Reqwest does not support SSE
 	override val supportedCapabilities: Set<HttpClientEngineCapability<*>>
@@ -28,7 +29,7 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 			var requestId: Int = 0
 
 			// Make callbacks to handle native request completion
-			val callbacks = object : Native.Callbacks() {
+			val callbacks = object : NativeEngine.Callbacks() {
 				override fun onResponse(version: String, code: Int, headers: Headers) {
 					val data = HttpResponseData(
 						statusCode = HttpStatusCode.fromValue(code),
@@ -47,7 +48,7 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 			}
 
 			// Start native request
-			requestId = Native.executeRequest(
+			requestId = NativeEngine.executeRequest(
 				clientPtr = nativeClientPtr,
 				callbacks = callbacks,
 				url = data.url.toString(),
@@ -57,10 +58,10 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 			)
 
 			// Abort native request if coroutine gets cancelled
-			continuation.invokeOnCancellation { Native.cancelRequest(requestId) }
+			continuation.invokeOnCancellation { NativeEngine.cancelRequest(requestId) }
 
 			// Cancel native request if coroutine cancelled before the cancellation handler was registered
-			if (continuation.isCancelled) Native.cancelRequest(requestId)
+			if (continuation.isCancelled) NativeEngine.cancelRequest(requestId)
 		}
 	}
 
@@ -68,7 +69,7 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 		super.close()
 		val ptr = nativeClientPtr
 		nativeClientPtr = 0
-		Native.destroyClient(ptr)
+		NativeEngine.destroyClient(ptr)
 	}
 
 	// Sigh... if only kotlin had static initializer blocks

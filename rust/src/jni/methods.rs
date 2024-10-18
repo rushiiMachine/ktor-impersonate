@@ -32,7 +32,7 @@ enum RequestTask {
 // ------------------------ JNI ------------------------ //
 
 #[catch_panic]
-#[jni_fn("dev.rushii.ktor_impersonate.Native")]
+#[jni_fn("dev.rushii.ktor_impersonate.internal.NativeEngine")]
 pub fn createClient<'l>(
 	mut env: JNIEnv<'l>,
 	_cls: JClass<'l>,
@@ -57,7 +57,7 @@ pub fn createClient<'l>(
 }
 
 #[catch_panic]
-#[jni_fn("dev.rushii.ktor_impersonate.Native")]
+#[jni_fn("dev.rushii.ktor_impersonate.internal.NativeEngine")]
 pub fn destroyClient<'l>(
 	_env: JNIEnv<'l>,
 	_cls: JClass<'l>,
@@ -72,7 +72,7 @@ pub fn destroyClient<'l>(
 }
 
 #[catch_panic]
-#[jni_fn("dev.rushii.ktor_impersonate.Native")]
+#[jni_fn("dev.rushii.ktor_impersonate.internal.NativeEngine")]
 pub fn executeRequest<'l>(
 	mut env: JNIEnv<'l>,
 	_cls: JClass<'l>,
@@ -119,7 +119,7 @@ pub fn executeRequest<'l>(
 }
 
 #[catch_panic]
-#[jni_fn("dev.rushii.ktor_impersonate.Native")]
+#[jni_fn("dev.rushii.ktor_impersonate.internal.NativeEngine")]
 pub fn cancelRequest<'l>(
 	_env: JNIEnv<'l>,
 	_cls: JClass<'l>,

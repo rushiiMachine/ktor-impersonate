@@ -117,7 +117,7 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 	init_ImpersonateConfig_getIdleTimeout(env.get_method_id(&ImpersonateConfig(), "getIdleTimeout", "()Ljava/lang/Long;").unwrap());
 	init_ImpersonateConfig_getAllowInvalidCertificates(env.get_method_id(&ImpersonateConfig(), "getAllowInvalidCertificates", "()Ljava/lang/Boolean;").unwrap());
 	init_ImpersonateConfig_getHttpsOnly(env.get_method_id(&ImpersonateConfig(), "getHttpsOnly", "()Ljava/lang/Boolean;").unwrap());
-	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/Native$Callbacks"));
+	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/internal/NativeEngine$Callbacks"));
 	init_NativeCallbacks_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	init_NativeCallbacks_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILio/ktor/http/Headers;)V").unwrap());
 
