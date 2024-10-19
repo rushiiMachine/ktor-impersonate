@@ -10,6 +10,7 @@ import io.ktor.http.*
 import io.ktor.util.date.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
+import kotlinx.io.*
 import kotlin.coroutines.*
 
 public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpClientEngineBase("ktor-impersonate") {
@@ -31,15 +32,19 @@ public class ImpersonateEngine(override val config: ImpersonateConfig) : HttpCli
 			// Make callbacks to handle native request completion
 			val callbacks = object : NativeEngine.Callbacks() {
 				override fun onResponse(version: String, code: Int, headers: Headers) {
-					val data = HttpResponseData(
-						statusCode = HttpStatusCode.fromValue(code),
-						requestTime = requestTime,
-						headers = headers,
-						version = HttpProtocolVersion.parse(version),
-						body = "", // TODO: this
-						callContext = callContext,
-					)
-					continuation.resume(data)
+					try {
+						val data = HttpResponseData(
+							statusCode = HttpStatusCode.fromValue(code),
+							requestTime = requestTime,
+							headers = headers,
+							version = HttpProtocolVersion.parse(version),
+							body = SourceByteReadChannel(ResponseSource(requestId).buffered()),
+							callContext = callContext,
+						)
+						continuation.resume(data)
+					} catch (t: Throwable) {
+						continuation.resumeWithException(t)
+					}
 				}
 
 				override fun onError(message: String) {

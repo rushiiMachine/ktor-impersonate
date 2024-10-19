@@ -9,6 +9,7 @@ mod client;
 mod headers;
 mod config;
 mod utils;
+mod source;
 
 #[no_mangle]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {

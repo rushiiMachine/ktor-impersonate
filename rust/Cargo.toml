@@ -20,12 +20,14 @@ bytes = "1.7.2"
 #catch_panic = { git = "https://github.com/sorz/catch_panic.git", rev = "92d4158" } # https://github.com/HermitSocialClub/catch_panic/pull/2
 catch_panic = { git = "https://github.com/rushiiMachine/catch_panic.git", rev = "7ce5a28" } # https://github.com/sorz/catch_panic/pull/1
 dashmap = "6.1.0"
+futures-core = "0.3.31"
+futures-util = "0.3.31"
 jni = "0.21.1"
 jni_fn = "0.1.2"
 log = "0.4.22"
 paste = "1.0.15"
 rand = "0.8.5"
-rquest = { version = "0.23.0", default-features = false, features = ["boring-tls", "websocket"] }
+rquest = { version = "0.23.0", default-features = false, features = ["boring-tls", "stream", "websocket"] }
 tokio = { version = "1", features = ["rt-multi-thread", "io-util", "net", "time", "sync"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

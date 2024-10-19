@@ -1,5 +1,5 @@
 use catch_panic::catch_panic;
-use jni::objects::{GlobalRef, JMethodID};
+use jni::objects::{GlobalRef, JFieldID, JMethodID};
 use jni::JNIEnv;
 use std::sync::Mutex;
 
@@ -61,6 +61,10 @@ cache_ref!(RuntimeException: GlobalRef);
 cache_ref!(Set: GlobalRef);
 cache_ref!(Set_toArray: JMethodID);
 
+// Kotlinx
+cache_ref!(Sink: GlobalRef);
+cache_ref!(Sink_write: JMethodID);
+
 // ktor-impersonate
 cache_ref!(ImpersonateConfig: GlobalRef);
 cache_ref!(ImpersonateConfig_getVerboseLogging: JMethodID);
@@ -73,6 +77,8 @@ cache_ref!(ImpersonateConfig_getHttpsOnly: JMethodID);
 cache_ref!(NativeCallbacks: GlobalRef);
 cache_ref!(NativeCallbacks_onError: JMethodID);
 cache_ref!(NativeCallbacks_onResponse: JMethodID);
+cache_ref!(ResponseSource: GlobalRef);
+cache_ref!(ResponseSource_requestId: JFieldID);
 
 // Ktor
 cache_ref!(HeadersBuilder: GlobalRef);
@@ -108,6 +114,10 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 	init_Set(class_ref(&mut env, "java/util/Set"));
 	init_Set_toArray(env.get_method_id(&Set(), "toArray", "()[Ljava/lang/Object;").unwrap());
 
+	// Kotlinx
+	init_Sink(class_ref(&mut env, "kotlinx/io/Sink"));
+	init_Sink_write(env.get_method_id(&Sink(), "write", "([BII)V").unwrap());
+
 	// ktor-impersonate
 	init_ImpersonateConfig(class_ref(&mut env, "dev/rushii/ktor_impersonate/ImpersonateConfig"));
 	init_ImpersonateConfig_getVerboseLogging(env.get_method_id(&ImpersonateConfig(), "getVerboseLogging", "()Z").unwrap());
@@ -120,6 +130,8 @@ pub(super) fn init_cache(mut env: JNIEnv) -> bool {
 	init_NativeCallbacks(class_ref(&mut env, "dev/rushii/ktor_impersonate/internal/NativeEngine$Callbacks"));
 	init_NativeCallbacks_onError(env.get_method_id(&NativeCallbacks(), "onError", "(Ljava/lang/String;)V").unwrap());
 	init_NativeCallbacks_onResponse(env.get_method_id(&NativeCallbacks(), "onResponse", "(Ljava/lang/String;ILio/ktor/http/Headers;)V").unwrap());
+	init_ResponseSource(class_ref(&mut env, "dev/rushii/ktor_impersonate/internal/ResponseSource"));
+	init_ResponseSource_requestId(env.get_field_id(&ResponseSource(), "requestId", "I").unwrap());
 
 	// Ktor
 	init_HeadersBuilder(class_ref(&mut env, "io/ktor/http/HeadersBuilder"));
@@ -150,6 +162,10 @@ pub(super) fn release_cache() {
 		Set_toArray,
 		Set,
 
+		// Kotlinx
+		Sink_write,
+		Sink,
+
 		// ktor-impersonate
 		ImpersonateConfig_getVerboseLogging,
 		ImpersonateConfig_getPreset,
@@ -162,6 +178,8 @@ pub(super) fn release_cache() {
 		NativeCallbacks_onError,
 		NativeCallbacks_onResponse,
 		NativeCallbacks,
+		ResponseSource_requestId,
+		ResponseSource,
 
 		// Ktor
 		HeadersBuilder_build,
