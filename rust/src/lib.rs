@@ -1,5 +1,6 @@
 mod root_certs;
 mod jni;
+mod requests;
 
 use std::sync::RwLock;
 use tokio::runtime::Runtime;

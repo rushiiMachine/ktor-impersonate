@@ -5,7 +5,7 @@ use std::ffi::c_void;
 
 mod exception;
 mod cache;
-mod methods;
+mod client;
 mod headers;
 mod config;
 mod utils;

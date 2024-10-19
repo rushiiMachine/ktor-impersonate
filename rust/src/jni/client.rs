@@ -1,33 +1,21 @@
 use crate::jni::headers::{headers_to_jni, jni_to_headers};
 use crate::jni::{cache, config};
+use crate::requests::{new_request_id, RequestTask, ACTIVE_REQUESTS};
 use crate::{root_certs, throw, throw_argument, TOKIO_RUNTIME};
-use arraystring::typenum::U8;
-use arraystring::ArrayString;
 use catch_panic::catch_panic;
-use dashmap::{DashMap, Entry};
+use dashmap::Entry;
+use futures_util::StreamExt;
 use jni::objects::{GlobalRef, JClass, JObject, JString, JValueGen, JValueOwned};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jboolean, jint, jlong};
 use jni::{JNIEnv, JavaVM};
 use jni_fn::jni_fn;
-use log::debug;
-use rand::Rng;
-use rquest::{Client, RequestBuilder, Response};
+use rquest::{Client, Request, Response};
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
-use std::sync::LazyLock;
-use tokio::task::AbortHandle;
-
-/// Request tasks that have not yet completed (including long-lived websockets)
-/// This is in order to be able to cancel currently running requests.
-static ACTIVE_REQUESTS: LazyLock<DashMap<i32, RequestTask>> = LazyLock::new(|| DashMap::with_capacity(20));
-
-enum RequestTask {
-	Single(AbortHandle),
-	Continuous(()),
-}
+use std::sync::{Arc, Mutex};
 
 // ------------------------ JNI ------------------------ //
 
@@ -112,9 +100,14 @@ pub fn executeRequest<'l>(
 		.headers(headers);
 
 	if is_websocket > 0 {
-		execute_websocket(env, client, builder)
+		todo!()
 	} else {
-		execute_request(env, callbacks, client, builder)
+		let request = match builder.build() {
+			Ok(req) => req,
+			Err(err) => throw!(env, &*format!("Failed to build request: {err}"), -1),
+		};
+
+		execute_request(env, callbacks, client, request)
 	}
 }
 
@@ -123,21 +116,19 @@ pub fn executeRequest<'l>(
 pub fn cancelRequest<'l>(
 	_env: JNIEnv<'l>,
 	_cls: JClass<'l>,
-	request_id: jint,
+	request_id: u32, // matches jint with different representation
 ) {
-	debug!("Cancelling request {request_id}");
-	match ACTIVE_REQUESTS.remove(&request_id) {
-		None => return,
-		Some((_, task)) => match task {
-			RequestTask::Single(handle) => handle.abort(),
-			RequestTask::Continuous(_) => todo!(),
+	match ACTIVE_REQUESTS.remove(&request_id).map(|kv| kv.1) {
+		Some(RequestTask::PendingResponse { abort, .. }) if abort.is_some() => {
+			abort.unwrap().abort();
 		}
+		_ => return,
 	}
 }
 
 // ------------------------ JNI Callbacks ------------------------ //
 
-fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
+fn callback_response(vm: JavaVM, callbacks: GlobalRef, request_id: u32, response: Response) {
 	// We assume this thread is already attached to the VM based on the tokio runtime config
 	let mut env = vm.get_env().expect("Thread is not attached to JavaVM");
 
@@ -145,9 +136,8 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 	let status_jni = JValueOwned::from(status as i32).as_jni();
 
 	// Format HTTP version to string
-	let mut version = ArrayString::<U8>::new();
-	write!(version, "{:?}", response.version())
-		.expect("Unexpected HTTP version");
+	let mut version = String::with_capacity(8);
+	write!(version, "{:?}", response.version()).unwrap();
 	let version_jni = JValueOwned::from(env.new_string(version).unwrap()).as_jni();
 
 	// Convert the headers to jni
@@ -155,6 +145,20 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 		.map(JValueOwned::from)
 		.expect("failed to convert headers map") // TODO: return error like callback_request_error does
 		.as_jni();
+
+	// Store the response body into the global ACTIVE_REQUESTS and remove the AbortHandle (task is almost finished)
+	if let Some(mut entry) = ACTIVE_REQUESTS.get_mut(&request_id) {
+		match entry.value_mut() {
+			RequestTask::PendingResponse { abort, body } => {
+				let stream = response.bytes_stream().boxed();
+				*abort = None;
+				*body = Some(Arc::new(Mutex::new(stream)));
+			}
+			_ => unreachable!(),
+		}
+	} else {
+		// This request has already been cancelled
+	}
 
 	// SAFETY: Method ID is always valid and sig types are correct
 	unsafe {
@@ -167,12 +171,15 @@ fn callback_response(vm: JavaVM, callbacks: GlobalRef, response: Response) {
 	};
 }
 
-fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error) {
+fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, request_id: u32, error: rquest::Error) {
 	// We assume this thread is already attached to the VM based on the tokio runtime config
 	let mut env = vm.get_env().expect("Thread is not attached to JavaVM");
 
 	let message = format!("Failed to execute request: {error}");
 	let message_jni = JValueGen::from(env.new_string(message).unwrap()).as_jni();
+
+	// Remove the request record from ACTIVE_REQUESTS
+	ACTIVE_REQUESTS.remove(&request_id);
 
 	// SAFETY: Method ID is always valid and sig types are correct
 	unsafe {
@@ -187,47 +194,28 @@ fn callback_request_error(vm: JavaVM, callbacks: GlobalRef, error: rquest::Error
 
 // ------------------------ Other ------------------------ //
 
-/// Generate a random id for this request and store a cancellation handle into ACTIVE_REQUESTS for later
-fn store_request_task(task: RequestTask) -> i32 {
-	loop {
-		let id = rand::thread_rng().gen_range(1..=i32::MAX);
-		match ACTIVE_REQUESTS.entry(id) {
-			Entry::Occupied(_) => { continue; }
-			Entry::Vacant(entry) => {
-				entry.insert(task);
-				break id;
-			}
-		}
-	}
-}
-
-fn execute_request(mut env: JNIEnv, callbacks: GlobalRef, client: Client, builder: RequestBuilder) -> jint {
-	let mut request_id: i32 = 0;
-
-	let request = match builder.build() {
-		Ok(req) => req,
-		Err(err) => throw!(env, &*format!("Failed to build request: {err}"), -1),
-	};
-
+fn execute_request(env: JNIEnv, callbacks: GlobalRef, client: Client, request: Request) -> jint {
 	let runtime_lock = TOKIO_RUNTIME.read().expect("runtime lock poisoned");
 	let runtime = runtime_lock.as_ref().expect("runtime not initialized");
 
+	let request_id = new_request_id();
 	let vm = env.get_java_vm().unwrap();
-	let handle = runtime.spawn(async move {
-		match client.execute(request).await {
-			Err(err) => callback_request_error(vm, callbacks, err),
-			Ok(resp) => callback_response(vm, callbacks, resp),
-		};
+	let task_handle = runtime.spawn(async move {
+		let result = client.execute(request).await;
 
-		debug!("Clearing request {request_id}");
-		ACTIVE_REQUESTS.remove(&request_id);
+		match result {
+			Err(err) => callback_request_error(vm, callbacks, request_id, err),
+			Ok(resp) => callback_response(vm, callbacks, request_id, resp),
+		};
 	});
 
-	request_id = store_request_task(RequestTask::Single(handle.abort_handle()));
-	request_id
-}
+	match ACTIVE_REQUESTS.entry(request_id) {
+		Entry::Occupied(_) => panic!("BUG: broken atomic or id overflow"),
+		Entry::Vacant(entry) => entry.insert(RequestTask::PendingResponse {
+			abort: Some(task_handle.abort_handle()),
+			body: None,
+		}),
+	};
 
-fn execute_websocket(_env: JNIEnv, _client: Client, _builder: RequestBuilder) -> jint {
-	store_request_task(RequestTask::Continuous(()));
-	todo!();
+	request_id as jint
 }

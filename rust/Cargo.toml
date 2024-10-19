@@ -16,7 +16,7 @@ lto = true
 codegen-units = 1
 
 [dependencies]
-arraystring = "0.3.0"
+bytes = "1.7.2"
 #catch_panic = { git = "https://github.com/sorz/catch_panic.git", rev = "92d4158" } # https://github.com/HermitSocialClub/catch_panic/pull/2
 catch_panic = { git = "https://github.com/rushiiMachine/catch_panic.git", rev = "7ce5a28" } # https://github.com/sorz/catch_panic/pull/1
 dashmap = "6.1.0"
