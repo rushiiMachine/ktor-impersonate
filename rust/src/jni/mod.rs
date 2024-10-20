@@ -1,4 +1,4 @@
-use crate::{throw, TOKIO_RUNTIME};
+use crate::{init_logging, throw, TOKIO_RUNTIME};
 use jni::sys::{jint, JNI_ERR, JNI_VERSION_1_6};
 use jni::JavaVM;
 use std::ffi::c_void;
@@ -13,11 +13,9 @@ mod source;
 
 #[no_mangle]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: c_void) -> jint {
-	let mut env = vm.get_env().unwrap();
+	init_logging();
 
-	// Initialize logging backend for each platform
-	#[cfg(target_os = "android")]
-	android_log::init("KtorImpersonateNative").unwrap();
+	let mut env = vm.get_env().unwrap();
 
 	// Initialize the JNI reference cache
 	// SAFETY: init_cache does not create JNI local references

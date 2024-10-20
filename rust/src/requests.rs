@@ -25,7 +25,7 @@ pub enum RequestTask {
 	/// A single request awaiting a response (not SSE or Websocket).
 	PendingResponse {
 		/// A handle to the spawned task responsible for executing the request and returning the data through FFI.
-		/// Once the response has been retrieved (excluding data), [abort] is set to [None] and [response] is populated.
+		/// Once the response has been retrieved (excluding data), [abort] is set to [None] and [body] is populated.
 		abort: Option<AbortHandle>,
 
 		/// The response data stream that is populated once request has succeeded.
